@@ -1,3 +1,8 @@
+
+This is a simple cloudformation json, that creates most common resources (Route53, ELB, AutoScale Group, RDS, etc), this is not an ideal setup, just played a "what can you do in 3 days with docs and video" game.
+It basically installs a Forum, with mysql on RDS, etc, and setups the AWS resources to run in a high availability mode.
+
+
  ▄████████    ▄█     █▄    ▄████████
  ███    ███  ███     ███  ███    ███
  ███    ███  ███     ███  ███    █▀
