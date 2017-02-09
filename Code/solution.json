@@ -1,0 +1,1204 @@
+{
+	"AWSTemplateFormatVersion": "2010-09-09",
+
+	"Description": "Cross|Over Project Evaluation v1.3, Ariel Sepulveda",
+
+	"Parameters": {
+
+		"KeyName": {
+			"Description": "Name of an existing EC2 KeyPair to enable SSH access to the instance.",
+			"Type": "AWS::EC2::KeyPair::KeyName",
+			"ConstraintDescription": "Can contain only ASCII characters."
+		},
+		"ServersAZ0": {
+			"Description": "Select from the list.",
+			"Type": "AWS::EC2::AvailabilityZone::Name"
+		},
+		"ServersAZ1": {
+			"Description": "Select from the list.",
+			"Type": "AWS::EC2::AvailabilityZone::Name"
+		},
+		"ServersAZ2": {
+			"Description": "Select from the list.",
+			"Type": "AWS::EC2::AvailabilityZone::Name"
+		},
+		"AdminEmail": {
+			"Description": "Will be used on Forum & Notifications",
+			"Type": "String",
+			"Default": "cascompany@gmail.com",
+			"AllowedPattern": "^[\\x20-\\x45]?[\\w-\\+]+(\\.[\\w]+)*@[\\w-]+(\\.[\\w]+)*(\\.[a-z]{2,})$",
+			"ConstraintDescription": "Must be a valid email address"
+		},
+		"SSHLocation": {
+			"Description": "Use 0.0.0.0/0 for Everyone.",
+			"Type": "String",
+			"MinLength": "9",
+			"MaxLength": "18",
+			"Default": "0.0.0.0/0",
+			"AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+			"ConstraintDescription": "Must be a valid IP CIDR range of the form x.x.x.x/x"
+		},
+		"NFSVolumeName": {
+			"Description": "Alphanumeric only.",
+			"Type": "String",
+			"MinLength": "1",
+			"AllowedPattern": "[a-zA-Z0-9]*",
+			"Default": "EFSWebRoot"
+		},
+		"NFSMountPoint": {
+			"Description": "Do NOT use a trailing slash.",
+			"Type": "String",
+			"MinLength": "1",
+			"Default": "/var/www/html"
+		},
+		"WEBInstanceType": {
+			"Description": "Use t2.micro for Free Tier.",
+			"Type": "String",
+			"Default": "t2.micro",
+			"AllowedValues": ["t1.micro", "t2.micro", "t2.small", "t2.medium", "m1.small", "m1.medium", "m1.large", "m1.xlarge", "m2.xlarge", "m2.2xlarge", "m2.4xlarge", "m3.medium", "m3.large", "m3.xlarge", "m3.2xlarge", "c1.medium", "c1.xlarge", "c3.large", "c3.xlarge", "c3.2xlarge", "c3.4xlarge", "c3.8xlarge", "g2.2xlarge", "r3.large", "r3.xlarge", "r3.2xlarge", "r3.4xlarge", "r3.8xlarge", "i2.xlarge", "i2.2xlarge", "i2.4xlarge", "i2.8xlarge", "hi1.4xlarge", "hs1.8xlarge", "cr1.8xlarge", "cc2.8xlarge", "cg1.4xlarge"],
+			"ConstraintDescription": "Must be a valid EC2 instance type"
+		},
+		"WEBInstanceHDD": {
+			"Description": "Min 8GB up to 1024GB.",
+			"Type": "Number",
+			"Default": "8",
+			"MinValue": "8",
+			"MaxValue": "1024"
+		},
+		"WEBInstanceMin": {
+			"Description": "Minimum servers to keep running.",
+			"Type": "Number",
+			"Default": "2"
+		},
+		"WEBInstanceMax": {
+			"Description": "Max instances to run at the same time.",
+			"Type": "Number",
+			"Default": "10"
+		},
+		"RDSInstanceType": {
+			"Description": "Use db.t2.micro for Free Tier.",
+			"Type": "String",
+			"Default": "db.t2.micro",
+			"AllowedValues": ["db.t2.micro", "db.t2.small", "db.t2.medium", "db.t2.large", "db.m4.large", "db.m4.xlarge", "db.m4.2xlarge", "db.m4.4xlarge", "db.m4.10xlarge", "db.m3.medium", "db.m3.large", "db.m3.xlarge", "db.m3.2xlarge", "db.r3.large", "db.r3.xlarge", "db.r3.2xlarge", "db.r3.4xlarge", "db.r3.8xlarge", "db.m2.xlarge", "db.m2.2xlarge", "db.m2.4xlarge"],
+			"ConstraintDescription": "must be a valid EC2 instance type"
+		},
+		"RDSInstanceSize": {
+			"Description": "Instance size minimum 5GB.",
+			"Type": "Number",
+			"Default": "5",
+			"MinValue": "5",
+			"MaxValue": "6144",
+			"ConstraintDescription": "RDS Instance Size must be between 5 and 6144 GB"
+		},
+		"DBNAME": {
+			"Description": "Only Alphanumeric.",
+			"Type": "String",
+			"Default": "MyBB",
+			"MinLength": "4",
+			"MaxLength": "20",
+			"AllowedPattern": "[a-zA-Z0-9]*",
+			"ConstraintDescription": "Enter a name between 4 and 20 characters."
+		},
+		"DBUSER": {
+			"Description": "Only Alphanumeric.",
+			"Type": "String",
+			"Default": "MyAdmin",
+			"MinLength": "4",
+			"MaxLength": "20",
+			"AllowedPattern": "[a-zA-Z0-9]*",
+			"ConstraintDescription": "Enter a username between 4 and 20 alphanumeric characters."
+		},
+		"DBPASS": {
+			"Description": "From 8 to 20 characters.",
+			"Type": "String",
+			"Default": "MyPassword",
+			"MinLength": "8",
+			"MaxLength": "20",
+			"ConstraintDescription": "Password must be between 8 and 20 characters."
+		},
+		"MultiAZEnable": {
+			"Description": "Enables a sync/failover secondary RDS instance.",
+			"Type": "String",
+			"Default": "false",
+			"AllowedValues": ["false", "true"]
+		}
+
+	},
+	"Metadata": {
+		"AWS::CloudFormation::Interface": {
+			"ParameterGroups": [{
+				"Label": {
+					"default": "Administrator Configuration"
+				},
+				"Parameters": ["KeyName", "AdminEmail", "SSHLocation"]
+			}, {
+				"Label": {
+					"default": "EC2 Instance Configuration"
+				},
+				"Parameters": ["WEBInstanceType", "WEBInstanceHDD", "WEBInstanceMin", "WEBInstanceMax"]
+			}, {
+				"Label": {
+					"default": "RDS Database Configuration"
+				},
+				"Parameters": ["RDSInstanceType", "RDSInstanceSize", "MultiAZEnable", "DBNAME", "DBUSER", "DBPASS"]
+			}, {
+				"Label": {
+					"default": "Select Availability Zone"
+				},
+				"Parameters": ["ServersAZ0", "ServersAZ1", "ServersAZ2"]
+			}, {
+				"Label": {
+					"default": "EFS Volume Configuration"
+				},
+				"Parameters": ["NFSVolumeName", "NFSMountPoint"]
+			}],
+			"ParameterLabels": {
+				"KeyName": {
+					"default": "KeyName for SSH"
+				},
+				"AdminEmail": {
+					"default": "Administrator Email"
+				},
+				"SSHLocation": {
+					"default": "Allow SSH from"
+				},
+				"WEBInstanceType": {
+					"default": "EC2 Instance Type"
+				},
+				"WEBInstanceHDD": {
+					"default": "EC2 Storage Size"
+				},
+				"WEBInstanceMin": {
+					"default": "AutoScaling Min"
+				},
+				"WEBInstanceMax": {
+					"default": "AutoScaling Max"
+				},
+
+				"RDSInstanceType": {
+					"default": "RDS Instance Type"
+				},
+				"RDSInstanceSize": {
+					"default": "RDS Storage Size"
+				},
+				"MultiAZEnable": {
+					"default": "Enable Multi-AZ "
+				},
+				"DBNAME": {
+					"default": "RDS Database Name"
+				},
+				"DBUSER": {
+					"default": "Database UserName"
+				},
+				"DBPASS": {
+					"default": "Database Password"
+				},
+
+				"ServersAZ0": {
+					"default": "Select Zone 1"
+				},
+				"ServersAZ1": {
+					"default": "Select Zone 2"
+				},
+				"ServersAZ2": {
+					"default": "Select Zone 3"
+				},
+
+				"NFSVolumeName": {
+					"default": "EFS Volume Name"
+				},
+				"NFSMountPoint": {
+					"default": "EFS and Apache Mount Point"
+				}
+			}
+		}
+	},
+	"Mappings": {
+		"AWSInstanceType2Arch": {
+      "t2.nano"     : { "Arch": "HVM64" },			"t2.micro"    : { "Arch": "HVM64" },
+			"t2.small"    : { "Arch": "HVM64" },			"t2.medium"   : { "Arch": "HVM64" },
+			"t2.large"    : { "Arch": "HVM64" },			"m3.medium"   : { "Arch": "HVM64" },
+			"m3.large"    : { "Arch": "HVM64" },			"m3.xlarge"   : { "Arch": "HVM64" },
+			"m3.2xlarge"  : { "Arch": "HVM64" },			"m4.large"    : { "Arch": "HVM64" },
+			"m4.xlarge"   : { "Arch": "HVM64" },			"m4.2xlarge"  : { "Arch": "HVM64" },
+			"m4.4xlarge"  : { "Arch": "HVM64" },			"m4.10xlarge" : { "Arch": "HVM64" },
+			"c3.large"    : { "Arch": "HVM64" },			"c3.xlarge"   : { "Arch": "HVM64" },
+			"c3.2xlarge"  : { "Arch": "HVM64" },			"c3.4xlarge"  : { "Arch": "HVM64" },
+			"c3.8xlarge"  : { "Arch": "HVM64" },			"c4.large"    : { "Arch": "HVM64" },
+			"c4.xlarge"   : { "Arch": "HVM64" },			"c4.2xlarge"  : { "Arch": "HVM64" },
+			"c4.4xlarge"  : { "Arch": "HVM64" },			"c4.8xlarge"  : { "Arch": "HVM64" },
+			"r3.large"    : { "Arch": "HVM64" },			"r3.xlarge"   : { "Arch": "HVM64" },
+			"r3.2xlarge"  : { "Arch": "HVM64" },			"r3.4xlarge"  : { "Arch": "HVM64" },
+			"r3.8xlarge"  : { "Arch": "HVM64" },			"i2.xlarge"   : { "Arch": "HVM64" },
+			"i2.2xlarge"  : { "Arch": "HVM64" },			"i2.4xlarge"  : { "Arch": "HVM64" },
+			"i2.8xlarge"  : { "Arch": "HVM64" },			"d2.xlarge"   : { "Arch": "HVM64" },
+			"d2.2xlarge"  : { "Arch": "HVM64" },			"d2.4xlarge"  : { "Arch": "HVM64" },
+			"d2.8xlarge"  : { "Arch": "HVM64" },			"hi1.4xlarge" : { "Arch": "HVM64" },
+			"hs1.8xlarge" : { "Arch": "HVM64" },			"cr1.8xlarge" : { "Arch": "HVM64" },
+			"cc2.8xlarge" : { "Arch": "HVM64" }
+		},
+
+		"AWSRegionArch2AMI": {
+			"us-east-1":     {				"HVM64": "ami-9be6f38c"			},
+			"us-west-2":     {				"HVM64": "ami-1e299d7e"			},
+			"us-east-2":     {				"HVM64": "ami-38cd975d"			},
+			"us-west-1":     {				"HVM64": "ami-b73d6cd7"			},
+			"ca-central-1":  {				"HVM64": "ami-eb20928f"			},
+			"eu-west-1":     {				"HVM64": "ami-c51e3eb6"			},
+			"eu-central-1":  {				"HVM64": "ami-211ada4e"			},
+			"eu-west-2":     {				"HVM64": "ami-bfe0eadb"			},
+			"ap-northeast-1":{				"HVM64": "ami-9f0c67f8"			},
+			"ap-northeast-2":{				"HVM64": "ami-94bb6dfa"			},
+			"ap-southeast-2":{				"HVM64": "ami-28cff44b"			},
+			"ap-southeast-1":{				"HVM64": "ami-4dd6782e"			},
+			"ap-south-1":    {				"HVM64": "ami-9fc7b0f0"			},
+			"sa-east-1":     {				"HVM64": "ami-bb40d8d7"			}			
+		},
+
+		"AWSRegionOptions": {
+			"us-east-1": {
+				"EFS": "true",
+				"MultiAZ": "true",
+				"DHCP": "cascloud.site",
+				"Location": "Virginia (US)"
+			},
+			"us-west-2": {
+				"EFS": "true",
+				"MultiAZ": "true",
+				"DHCP": "cascloud.site",
+				"Location": "Oregon (US)"
+			},
+			"us-east-2": {
+				"EFS": "true",
+				"MultiAZ": "false",
+				"DHCP": "cascloud.site",
+				"Location": "Ohio (US)"
+			},
+			"us-west-1": {
+				"EFS": "false",
+				"MultiAZ": "false",
+				"DHCP": "cascloud.site",
+				"Location": "California (US)"
+			},
+			"ca-central-1": {
+				"EFS": "false",
+				"MultiAZ": "false",
+				"DHCP": "cascloud.site",
+				"Location": "Canada (CA)"
+			},
+			"eu-west-1": {
+				"EFS": "true",
+				"MultiAZ": "true",
+				"DHCP": "cascloud.site",
+				"Location": "Ireland (EU)"
+			},
+			"eu-central-1": {
+				"EFS": "false",
+				"MultiAZ": "false",
+				"DHCP": "cascloud.site",
+				"Location": "Frankfurt (Germany)"
+			},
+			"eu-west-2": {
+				"EFS": "false",
+				"MultiAZ": "false",
+				"DHCP": "cascloud.site",
+				"Location": "London (GB)"
+			},
+			"ap-northeast-1": {
+				"EFS": "false",
+				"MultiAZ": "true",
+				"DHCP": "cascloud.site",
+				"Location": "Tokyo (Japan)"
+			},
+			"ap-northeast-2": {
+				"EFS": "false",
+				"MultiAZ": "true",
+				"DHCP": "cascloud.site",
+				"Location": "Seoul (Corea)"
+			},
+			"ap-southeast-2": {
+				"EFS": "false",
+				"MultiAZ": "true",
+				"DHCP": "cascloud.site",
+				"Location": "Sydney (Australia)"
+			},
+			"ap-southeast-1": {
+				"EFS": "false",
+				"MultiAZ": "false",
+				"DHCP": "cascloud.site",
+				"Location": "Singapore (Asia)"
+			},
+			"ap-south-1": {
+				"EFS": "false",
+				"MultiAZ": "false",
+				"DHCP": "cascloud.site",
+				"Location": "Mumbai (India)"
+			},
+			"sa-east-1": {
+				"EFS": "false",
+				"MultiAZ": "true",
+				"DHCP": "cascloud.site",
+				"Location": "Sao Paulo (Brasil)"
+			},
+			"cn-north-1": {
+				"EFS": "false",
+				"MultiAZ": "false",
+				"DHCP": "cascloud.site",
+				"Location": "Sao Paulo (Brasil)"
+			}
+		},
+
+		"AWSSubnets": {
+			"VPC":     {				"CIDR": "10.1.0.0/16"			},
+			"Subnet1": {				"CIDR": "10.1.1.0/24"			},
+			"Subnet2": {				"CIDR": "10.1.2.0/24"			},
+			"Subnet3": {				"CIDR": "10.1.3.0/24"			},
+			"Subnet4": {				"CIDR": "10.1.4.0/24"			},
+			"Subnet5": {				"CIDR": "10.1.5.0/24"			},
+			"Subnet6": {				"CIDR": "10.1.6.0/24"			},
+			"RDS1":    {				"CIDR": "10.1.7.0/24"			},
+			"RDS2":    {				"CIDR": "10.1.8.0/24"			}
+		}
+	},
+
+
+	"Resources": {
+		"VPC": {
+			"Type": "AWS::EC2::VPC",
+			"Properties": {
+				"CidrBlock": {
+					"Fn::FindInMap": ["AWSSubnets", "VPC", "CIDR"]
+				},
+				"InstanceTenancy": "default",
+				"EnableDnsSupport": "true",
+				"EnableDnsHostnames": "true",
+				"Tags": [{
+					"Key": "Name",
+					"Value": "CASVPC"
+				}]
+			}
+		},
+		"InstanceRole": {
+			"Type": "AWS::IAM::Role",
+			"Properties": {
+				"AssumeRolePolicyDocument": {
+					"Statement": [{
+						"Effect": "Allow",
+						"Principal": {
+							"Service": ["ec2.amazonaws.com"]
+						},
+						"Action": ["sts:AssumeRole"]
+					}]
+				},
+				"Path": "/"
+			}
+		},
+		"RolePolicies": {
+			"Type": "AWS::IAM::Policy",
+			"Properties": {
+				"PolicyName": "S3Download",
+				"PolicyDocument": {
+					"Statement": [{
+						"Action": ["s3:GetObject"],
+						"Effect": "Allow",
+						"Resource": "arn:aws:s3:::casproject/mybb.zip"
+					}]
+				},
+				"Roles": [{
+					"Ref": "InstanceRole"
+				}]
+			}
+		},
+		"InstanceProfile": {
+			"Type": "AWS::IAM::InstanceProfile",
+			"Properties": {
+				"Path": "/",
+				"Roles": [{
+					"Ref": "InstanceRole"
+				}]
+			}
+		},
+    "RDSSecurityGroup": {
+			"Type": "AWS::EC2::SecurityGroup",
+			"Properties": {
+				"GroupDescription": "Database Security Group",
+				"VpcId": {"Ref": "VPC"},
+				"Tags": [{
+					"Key": "Name",
+					"Value": "RDS_SG"
+				}]
+			}
+		},
+    "RDSserverInstance": {
+			"Type": "AWS::RDS::DBInstance",
+			"Properties": {
+				"AllocatedStorage": { "Ref": "RDSInstanceSize" },
+				"AllowMajorVersionUpgrade": "false",
+				"AutoMinorVersionUpgrade": "true",
+        "MultiAZ": { "Ref": "MultiAZEnable"  },
+				"DBInstanceClass": { "Ref": "RDSInstanceType"	},
+				"Port": "3306",
+				"StorageType": "gp2",
+				"BackupRetentionPeriod": "15",
+				"MasterUsername": {	"Ref": "DBUSER"	},
+				"MasterUserPassword": {	"Ref": "DBPASS"	},
+				"PreferredBackupWindow": "03:33-06:33",
+				"PreferredMaintenanceWindow": "sun:02:22-sun:03:22",
+				"DBName": {	"Ref": "DBNAME"	},
+				"Engine": "mysql",
+				"EngineVersion": "5.6.27",
+				"LicenseModel": "general-public-license",
+				"DBSubnetGroupName": {	"Ref": "dbsubnetdefaultVPC"	},
+				"VPCSecurityGroups": [{	"Ref": "RDSSecurityGroup"	}],
+				"Tags": [{
+					"Key": "workload-type",
+					"Value": "production"
+				}]
+			}
+		},
+		"FileSystem": {
+			"Type": "AWS::EFS::FileSystem",
+			"Properties": {
+				"PerformanceMode": "generalPurpose",
+				"FileSystemTags": [{
+					"Key": "Name",
+					"Value": {
+						"Ref": "NFSVolumeName"
+					}
+				}]
+			}
+		},
+		"MountTarget0": {
+			"DependsOn": ["FileSystem"],
+			"Type": "AWS::EFS::MountTarget",
+			"Properties": {
+				"FileSystemId": { "Ref": "FileSystem"	},
+				"SubnetId": {	"Ref": "PublicSubnet0" },
+				"SecurityGroups": [{ "Ref": "DMZSecurityGroup" }]
+			}
+		},
+    "MountTarget1": {
+			"DependsOn": ["FileSystem"],
+			"Type": "AWS::EFS::MountTarget",
+			"Properties": {
+				"FileSystemId": { "Ref": "FileSystem"	},
+				"SubnetId": {	"Ref": "PublicSubnet1" },
+				"SecurityGroups": [{ "Ref": "DMZSecurityGroup" }]
+			}
+		},
+    "MountTarget2": {
+			"DependsOn": ["FileSystem"],
+			"Type": "AWS::EFS::MountTarget",
+			"Properties": {
+				"FileSystemId": { "Ref": "FileSystem"	},
+				"SubnetId": {	"Ref": "PublicSubnet2" },
+				"SecurityGroups": [{ "Ref": "DMZSecurityGroup" }]
+			}
+		},
+		"PublicSubnet0": {
+      "DependsOn": ["VPC"],
+			"Type": "AWS::EC2::Subnet",
+			"Properties": {
+				"CidrBlock": { "Fn::FindInMap": ["AWSSubnets", "Subnet1", "CIDR"]	},
+				"AvailabilityZone": {	"Ref": "ServersAZ0"	},
+				"VpcId": { "Ref": "VPC"	},
+				"Tags": [{ "Key": "Name",	"Value": "Public_Subnet_0" }]
+			}
+		},
+		"PublicSubnet1": {
+			"DependsOn": ["VPC"],
+			"Type": "AWS::EC2::Subnet",
+			"Properties": {
+				"CidrBlock": { "Fn::FindInMap": ["AWSSubnets", "Subnet2", "CIDR"]	},
+				"AvailabilityZone": {	"Ref": "ServersAZ1"	},
+				"VpcId": { "Ref": "VPC"	},
+				"Tags": [{ "Key": "Name",	"Value": "Public_Subnet_1" }]
+			}
+		},
+		"PublicSubnet2": {
+      "DependsOn": ["VPC"],
+			"Type": "AWS::EC2::Subnet",
+			"Properties": {
+				"CidrBlock": { "Fn::FindInMap": ["AWSSubnets", "Subnet3", "CIDR"]	},
+				"AvailabilityZone": {	"Ref": "ServersAZ2"	},
+				"VpcId": { "Ref": "VPC"	},
+				"Tags": [{ "Key": "Name",	"Value": "Public_Subnet_2" }]
+			}
+		},
+    "PrivateRDS0": {
+      "DependsOn": ["VPC"],
+			"Type": "AWS::EC2::Subnet",
+			"Properties": {
+				"CidrBlock": { "Fn::FindInMap": ["AWSSubnets", "RDS1", "CIDR"]	},
+				"AvailabilityZone": {	"Ref": "ServersAZ1"	},
+				"VpcId": { "Ref": "VPC"	},
+				"Tags": [{ "Key": "Name",	"Value": "Private_Subnet_0" }]
+			}
+		},
+    "PrivateRDS1": {
+      "DependsOn": ["VPC"],
+			"Type": "AWS::EC2::Subnet",
+			"Properties": {
+				"CidrBlock": { "Fn::FindInMap": ["AWSSubnets", "RDS2", "CIDR"]	},
+				"AvailabilityZone": {	"Ref": "ServersAZ2"	},
+				"VpcId": { "Ref": "VPC"	},
+				"Tags": [{ "Key": "Name",	"Value": "Private_Subnet_1" }]
+			}
+		},
+		"InternetGateway": {
+			"Type": "AWS::EC2::InternetGateway",
+			"Properties": {
+				"Tags": [{
+					"Key": "Name",
+					"Value": "Internet_Gateway"
+				}]
+			}
+		},
+		"VPNDHCP": {
+			"Type": "AWS::EC2::DHCPOptions",
+			"Properties": {
+				"DomainName": {
+					"Fn::FindInMap": ["AWSRegionOptions", {
+						"Ref": "AWS::Region"
+					}, "DHCP"]
+				},
+				"DomainNameServers": ["AmazonProvidedDNS"]
+			}
+		},
+		"NetworkACL": {
+			"DependsOn": ["VPC"],
+			"Type": "AWS::EC2::NetworkAcl",
+			"Properties": {
+				"VpcId": {
+					"Ref": "VPC"
+				}
+			}
+		},
+		"LocalRouteTable": {
+			"DependsOn": ["VPC"],
+			"Type": "AWS::EC2::RouteTable",
+			"Properties": {
+				"VpcId": {
+					"Ref": "VPC"
+				},
+				"Tags": [{
+					"Key": "Name",
+					"Value": "LOCALRoute"
+				}]
+			}
+		},
+		"PublicRouteTable": {
+			"DependsOn": ["VPC"],
+			"Type": "AWS::EC2::RouteTable",
+			"Properties": {
+				"VpcId": {
+					"Ref": "VPC"
+				},
+				"Tags": [{
+					"Key": "Name",
+					"Value": "PublicRouteTable"
+				}]
+			}
+		},
+		"ElasticLoadBalancer1": {
+			"DependsOn": ["VPC", "LBSecurityGroup"],
+			"Type": "AWS::ElasticLoadBalancing::LoadBalancer",
+			"Properties": {
+				"Subnets": [{"Ref": "PublicSubnet0"}, {"Ref": "PublicSubnet1"}, {"Ref": "PublicSubnet2"}],
+				"HealthCheck": {
+					"HealthyThreshold": "10",
+					"Interval": "10",
+					"Target": "HTTP:80/online.html",
+					"Timeout": "5",
+					"UnhealthyThreshold": "2"
+				},
+				"ConnectionDrainingPolicy": {
+					"Enabled": "true",
+					"Timeout": "300"
+				},
+				"ConnectionSettings": {
+					"IdleTimeout": "60"
+				},
+				"CrossZone": "true",
+				"Instances": [
+
+				],
+				"SecurityGroups": [{
+					"Ref": "LBSecurityGroup"
+				}],
+				"Listeners": [{
+					"InstancePort": "80",
+					"LoadBalancerPort": "80",
+					"Protocol": "HTTP",
+					"InstanceProtocol": "HTTP"
+				}]
+			}
+		},
+    "NotificationTopic": {
+          "Type": "AWS::SNS::Topic",
+          "Properties": {
+            "Subscription": [ { "Endpoint": { "Ref": "AdminEmail" }, "Protocol": "email" } ]
+          }
+        },
+		"AutoScalingGroup": {
+			"DependsOn": ["RDSserverInstance"],
+			"Type": "AWS::AutoScaling::AutoScalingGroup",
+			"Properties": {
+				"AvailabilityZones": [{"Ref": "ServersAZ0"}, {"Ref": "ServersAZ1"}, {"Ref": "ServersAZ2"}],
+				"Cooldown": "90",
+				"DesiredCapacity": {"Ref": "WEBInstanceMin"},
+				"HealthCheckGracePeriod": "300",
+				"HealthCheckType": "ELB",
+				"MaxSize": {"Ref": "WEBInstanceMax"},
+				"MinSize": {"Ref": "WEBInstanceMin"},
+        "LoadBalancerNames" : [ { "Ref" : "ElasticLoadBalancer1" } ],
+				"VPCZoneIdentifier": [{"Ref": "PublicSubnet0"}, {"Ref": "PublicSubnet1"},{"Ref": "PublicSubnet2"}],
+				"LaunchConfigurationName": {"Ref": "LaunchConfig"	},
+				"Tags": [{
+					"Key": "Name",
+					"Value": "Auto Scaling Instance",
+					"PropagateAtLaunch": true
+				}, {
+					"Key": "Reference",
+					"Value": "Created by CAS's Cloudformation Stack",
+					"PropagateAtLaunch": true
+				}],
+				"TerminationPolicies": ["Default"],
+        "NotificationConfiguration" : {
+          "TopicARN" : { "Ref" : "NotificationTopic" },
+          "NotificationTypes" : [ "autoscaling:EC2_INSTANCE_LAUNCH",
+                                  "autoscaling:EC2_INSTANCE_LAUNCH_ERROR",
+                                  "autoscaling:EC2_INSTANCE_TERMINATE",
+                                  "autoscaling:EC2_INSTANCE_TERMINATE_ERROR"]
+        }
+      }
+		},
+		"LaunchConfig": {
+			"Type": "AWS::AutoScaling::LaunchConfiguration",
+			"Metadata": {
+				"AWS::CloudFormation::Authentication": {
+					"S3AccessCreds": {
+						"type": "S3",
+						"roleName": {
+							"Ref": "InstanceRole"
+						},
+						"buckets": ["casproject"]
+					}
+				},
+				"AWS::CloudFormation::Init": {
+					"configSets": {
+						"MountConfig": ["setup", "download", "configme"]
+					},
+					"setup": {
+						"packages": {
+							"yum": {
+								"httpd": [],
+								"php": [],
+								"php-mysql": [],
+								"mysql": [],
+								"wget": [],
+								"nfs-utils": [],
+								"stress": [],
+								"mc": []
+							}
+						},
+            "files" : {
+              "/etc/cfn/cfn-hup.conf" : {
+                "content" : { "Fn::Join" : ["", [
+                  "[main]\n",
+                  "stack=", { "Ref" : "AWS::StackId" }, "\n",
+                  "region=", { "Ref" : "AWS::Region" }, "\n"
+                ]]},
+                "mode"    : "000400",
+                "owner"   : "root",
+                "group"   : "root"
+              },
+              "/etc/cfn/hooks.d/cfn-auto-reloader.conf" : {
+                "content": { "Fn::Join" : ["", [
+                  "[cfn-auto-reloader-hook]\n",
+                  "triggers=post.update\n",
+                  "path=Resources.LaunchConfig.Metadata.AWS::CloudFormation::Init\n",
+                  "action=/opt/aws/bin/cfn-init -v ",
+                  "         --stack ", { "Ref" : "AWS::StackName" },
+                  "         --resource LaunchConfig ",
+                  "         --region ", { "Ref" : "AWS::Region" }, "\n",
+                  "runas=root\n"
+                ]]}
+              }
+            },
+            "services" : {
+              "sysvinit" : {
+                "httpd"    : { "enabled" : "true", "ensureRunning" : "true" },
+                "cfn-hup" : { "enabled" : "true", "ensureRunning" : "true",
+                              "files" : ["/etc/cfn/cfn-hup.conf", "/etc/cfn/hooks.d/cfn-auto-reloader.conf"]}
+              }
+            },
+						"commands": {
+							"1a": {
+								"command": {
+                  "Fn::Sub": "mkdir -p ${NFSMountPoint}"
+								}
+              },
+							"1b": {
+								"command": {
+									"Fn::Sub": "mount -t nfs4 -o nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=60,retrans=2 ${FileSystem}.efs.${AWS::Region}.amazonaws.com:/ ${NFSMountPoint}"
+								}
+							},
+              "1c": {
+								"command": {
+									"Fn::Sub": "sed -i 's,/var/www/html,${NFSMountPoint},g' /etc/httpd/conf/httpd.conf"
+								}
+							}
+						}
+					},
+					"download": {
+						"commands": {
+							"2a": {
+								"command": {
+									"Fn::Sub": "aws s3 cp s3://casproject/mybb.zip . && unzip -o mybb.zip"
+								},
+								"cwd": {
+									"Ref": "NFSMountPoint"
+								}
+							}
+						}
+					},
+					"configme": {
+						"commands": {
+							"configure": {
+								"command": {
+									"Fn::Join": ["", [
+										"#!/bin/bash -x\n", "cd ", { "Ref": "NFSMountPoint" }, "\n",
+                    "mv htaccess.txt .htaccess\n",
+										"sed -i 's/mybbdb.c6a93sjn92uu.eu-west-1.rds.amazonaws.com/", {	"Fn::GetAtt": ["RDSserverInstance", "Endpoint.Address"]	}, "/g' inc/config.php\n",
+                    "sed -i 's/mybbdb/", {"Ref": "DBNAME"}, "/g' inc/config.php\n",
+                    "sed -i 's/mybbuser/", {"Ref": "DBUSER"}, "/g' inc/config.php\n",
+                    "sed -i 's/mybbpassword/", {"Ref": "DBPASS"}, "/g' inc/config.php\n",
+										"chmod 666 inc/config.php inc/settings.php inc/languages/*/*.php inc/languages/*/admin/*.php\n",
+                    "chmod 777 cache/ cache/themes/ uploads/ uploads/avatars/ admin/backups/\n",
+										"TABLES=$(mysql ", {"Ref": "DBNAME"}, " -h ", {"Fn::GetAtt": ["RDSserverInstance", "Endpoint.Address"]},
+										"    --port 3306 -u ", {"Ref": "DBUSER"}, " -p", {"Ref": "DBPASS"}, " -B -N -e 'show tables' | wc -l)\n",
+										"if [ \"$TABLES\" -lt 70 ]; then \n", "echo \"+++++++ Installing Fresh DB +++++++ \" \n",
+										"sed -i 's/mybb-load-balancer-1850919603.eu-west-1.elb.amazonaws.com/",{"Fn::GetAtt": ["ElasticLoadBalancer1", "DNSName"]	},"/g' mybbdump.sql\n",
+										"sed -i 's/MYBB_FORUM_NAME/CrossOver Forum/g' mybbdump.sql\n", "sed -i 's/MYBB_WEBSITE_NAME/MyBB Project/g' mybbdump.sql\n",
+										"sed -i 's/CONTACT@EMAIL.COM/", {"Ref": "AdminEmail"}, "/g' mybbdump.sql\n", "sed -i 's/MYBBADMINUSER/",{"Ref": "DBUSER"},"/g' mybbdump.sql\n",
+										"sed -i 's/MYBBADMINPASS/",{"Ref": "DBPASS"},"/g' mybbdump.sql\n", "sed -i 's/ADMIN@EMAIL.COM/", {"Ref": "AdminEmail"}, "/g' mybbdump.sql\n",
+										"mysql ", {"Ref": "DBNAME"}, " -h ", {"Fn::GetAtt": ["RDSserverInstance", "Endpoint.Address"]}, " --port 3306 -u ", {"Ref": "DBUSER"},
+                    "    -p", {	"Ref": "DBPASS" }, " < mybbdump.sql\n","else \n", "echo \"****** DB Exists and have Forum Data, Skipping DB Import\"\n", "fi\n",
+										"sed -i 's/mybb-load-balancer-1850919603.eu-west-1.elb.amazonaws.com/",{"Fn::GetAtt": ["ElasticLoadBalancer1", "DNSName"]	},"/g' inc/settings.php\n",
+										"sed -i 's/MYBB_FORUM_NAME/CrossOver Forum/g' inc/settings.php\n", "sed -i 's/MYBB_WEBSITE_NAME/MyBB Project/g' inc/settings.php\n",
+										"sed -i 's/CONTACT@EMAIL.COM/", {	"Ref": "AdminEmail"	}, "/g' inc/settings.php\n",
+										"wget http://cascompany.net/logo.png -O images/logo.png\n", "sed -i 's/ MyBB Group./ Ariel Sepulveda/g' admin/inc/class_page.php\n",
+										"echo \"online\" online.html\n", "service httpd restart\n", "echo \"+++++++++++ Done ++++++++++\" \n",
+										"\n",
+										"echo \"root:", {"Ref": "DBPASS"}, "\" | chpasswd \n",
+										"sed -i 's/PermitRootLogin no/PermitRootLogin yes/g' /etc/ssh/sshd_config\n",
+										"sed -i 's/forced-commands-only/yes/g' /etc/ssh/sshd_config\n",
+                    "sed -i 's/dAuthentication no/dAuthentication yes/g' /etc/ssh/sshd_config\n",
+										"/etc/init.d/sshd restart\n",
+										"\n",
+										"echo \"# I think we are done. :) \" \n"
+									]]
+								}
+							}
+						}
+					}
+				}
+			},
+
+			"Properties": {
+				"AssociatePublicIpAddress": true,
+				"ImageId": {
+					"Fn::FindInMap": ["AWSRegionArch2AMI", {
+						"Ref": "AWS::Region"
+					}, {
+						"Fn::FindInMap": ["AWSInstanceType2Arch", {
+							"Ref": "WEBInstanceType"
+						}, "Arch"]
+					}]
+				},
+				"InstanceType": {
+					"Ref": "WEBInstanceType"
+				},
+				"InstanceMonitoring": false,
+				"IamInstanceProfile": {
+					"Ref": "InstanceProfile"
+				},
+				"KeyName": {
+					"Ref": "KeyName"
+				},
+				"SecurityGroups": [{
+					"Ref": "DMZSecurityGroup"
+				}],
+				"BlockDeviceMappings": [{
+					"DeviceName": "/dev/xvda",
+					"Ebs": {
+						"VolumeSize": {
+							"Ref": "WEBInstanceHDD"
+						}
+					}
+				}],
+				"UserData": {
+					"Fn::Base64": {
+						"Fn::Join": ["", [
+							"#!/bin/bash -x\n",
+							"yum update -y\n",
+							"yum install -y aws-cfn-bootstrap\n",
+							"/opt/aws/bin/cfn-init -v --stack ", { "Ref": "AWS::StackName" },
+							" --resource LaunchConfig --configsets MountConfig ",
+							" --region ", {	"Ref": "AWS::Region" }, "\n",
+							"/opt/aws/bin/cfn-signal -e $? ",
+							"  --stack ", { "Ref": "AWS::StackName" },
+							"  --resource AutoScalingGroup ",
+							"  --region ", { "Ref": "AWS::Region" }, "\n"
+						]]
+					}
+				}
+			}
+		},
+
+		"dbsubnetdefaultVPC": {
+			"Type": "AWS::RDS::DBSubnetGroup",
+			"Properties": {
+				"DBSubnetGroupDescription": "RDS Subnets Group",
+				"SubnetIds": [{"Ref": "PrivateRDS0"}, {"Ref": "PrivateRDS1"}]
+			}
+		},
+		"DMZSecurityGroup": {
+			"Type": "AWS::EC2::SecurityGroup",
+			"Properties": {
+				"GroupDescription": "Web Servers",
+				"VpcId": {
+					"Ref": "VPC"
+				},
+				"Tags": [{
+					"Key": "Name",
+					"Value": "WEB_SG"
+				}]
+			}
+		},
+		"LBSecurityGroup": {
+			"Type": "AWS::EC2::SecurityGroup",
+			"Properties": {
+				"GroupDescription": "Load Balancer",
+				"VpcId": {
+					"Ref": "VPC"
+				},
+				"Tags": [{
+					"Key": "Name",
+					"Value": "LB_SG"
+				}]
+			}
+		},
+		"AutoScaleUP": {
+			"Type": "AWS::AutoScaling::ScalingPolicy",
+			"Properties": {
+				"AdjustmentType": "ChangeInCapacity",
+				"PolicyType": "StepScaling",
+				"StepAdjustments": [{
+					"ScalingAdjustment": 1,
+					"MetricIntervalUpperBound": 0
+				}],
+				"AutoScalingGroupName": {
+					"Ref": "AutoScalingGroup"
+				}
+			}
+		},
+		"AutoScaleDOWN": {
+			"Type": "AWS::AutoScaling::ScalingPolicy",
+			"Properties": {
+				"AdjustmentType": "ChangeInCapacity",
+				"PolicyType": "StepScaling",
+				"StepAdjustments": [{
+					"ScalingAdjustment": -1,
+					"MetricIntervalLowerBound": 0
+				}],
+				"AutoScalingGroupName": {
+					"Ref": "AutoScalingGroup"
+				}
+			}
+		},
+		"CPUHighAlarm": {
+			"Type": "AWS::CloudWatch::Alarm",
+			"Properties": {
+        "AlarmDescription": "Test Alarm of CPU > 90% for 2 min.",
+				"ActionsEnabled": "true",
+				"ComparisonOperator": "GreaterThanOrEqualToThreshold",
+				"EvaluationPeriods": "2",
+				"MetricName": "CPUUtilization",
+				"Namespace": "AWS/EC2",
+				"Period": "60",
+				"Statistic": "Average",
+				"Threshold": "90.0",
+				"AlarmActions": [{ "Ref": "AutoScaleUP"	}],
+				"Dimensions": [{
+					"Name": "AutoScalingGroupName",
+					"Value": "AutoScalingGroup"
+				}]
+			}
+		},
+		"CPULowAlarm": {
+			"Type": "AWS::CloudWatch::Alarm",
+			"Properties": {
+        "AlarmDescription": "Test Alarm of CPU < 50% for 2 min.",
+				"ActionsEnabled": "true",
+				"ComparisonOperator": "LessThanOrEqualToThreshold",
+				"EvaluationPeriods": "2",
+				"MetricName": "CPUUtilization",
+				"Namespace": "AWS/EC2",
+				"Period": "60",
+				"Statistic": "Average",
+				"Threshold": "50.0",
+				"AlarmActions": [{ "Ref": "AutoScaleDOWN"	}],
+				"Dimensions": [{
+					"Name": "AutoScalingGroupName",
+					"Value": "AutoScalingGroup"
+				}]
+			}
+		},
+		"acl1": {
+			"Type": "AWS::EC2::NetworkAclEntry",
+			"Properties": {
+				"CidrBlock": "0.0.0.0/0",
+				"Egress": "true",
+				"Protocol": "-1",
+				"RuleAction": "allow",
+				"RuleNumber": "100",
+				"NetworkAclId": {
+					"Ref": "NetworkACL"
+				}
+			}
+		},
+		"acl2": {
+			"Type": "AWS::EC2::NetworkAclEntry",
+			"Properties": {
+				"CidrBlock": "0.0.0.0/0",
+				"Protocol": "-1",
+				"RuleAction": "allow",
+				"RuleNumber": "100",
+				"NetworkAclId": {
+					"Ref": "NetworkACL"
+				}
+			}
+		},
+		"SubNetAsociation0": {
+			"DependsOn": ["NetworkACL", "PublicSubnet0"],
+			"Type": "AWS::EC2::SubnetNetworkAclAssociation",
+			"Properties": {
+				"NetworkAclId": {	"Ref": "NetworkACL"	},
+				"SubnetId": {	"Ref": "PublicSubnet0" }
+			}
+		},
+		"SubNetAsociation1": {
+			"DependsOn": ["NetworkACL", "PublicSubnet1"],
+			"Type": "AWS::EC2::SubnetNetworkAclAssociation",
+			"Properties": {
+				"NetworkAclId": {	"Ref": "NetworkACL"	},
+				"SubnetId": {	"Ref": "PublicSubnet1"	}
+			}
+		},
+		"SubNetAsociation2": {
+			"DependsOn": ["NetworkACL", "PublicSubnet2"],
+			"Type": "AWS::EC2::SubnetNetworkAclAssociation",
+			"Properties": {
+				"NetworkAclId": {	"Ref": "NetworkACL"	},
+				"SubnetId": {	"Ref": "PublicSubnet2"	}
+			}
+		},
+		"GatewayToInternet": {
+			"DependsOn": ["VPC", "InternetGateway"],
+			"Type": "AWS::EC2::VPCGatewayAttachment",
+			"Properties": {
+				"VpcId": {	"Ref": "VPC"	},
+				"InternetGatewayId": { "Ref": "InternetGateway"	}
+			}
+		},
+		"SubnetRouteAsoc0": {
+			"Type": "AWS::EC2::SubnetRouteTableAssociation",
+			"Properties": {
+				"RouteTableId": { "Ref": "LocalRouteTable" },
+				"SubnetId"    : {	"Ref": "PrivateRDS0"	}
+			}
+		},
+    "SubnetRouteAsoc1": {
+			"Type": "AWS::EC2::SubnetRouteTableAssociation",
+			"Properties": {
+				"RouteTableId": {	"Ref": "LocalRouteTable" },
+				"SubnetId"    : {	"Ref": "PrivateRDS1"	}
+			}
+		},
+		"SubnetRouteAsoc2": {
+			"Type": "AWS::EC2::SubnetRouteTableAssociation",
+			"Properties": {
+				"RouteTableId": {	"Ref": "PublicRouteTable"	},
+				"SubnetId"    : {	"Ref": "PublicSubnet0" }
+			}
+		},
+		"SubnetRouteAsoc3": {
+			"Type": "AWS::EC2::SubnetRouteTableAssociation",
+			"Properties": {
+				"RouteTableId": {	"Ref": "PublicRouteTable"	},
+				"SubnetId"    : {	"Ref": "PublicSubnet1"	}
+			}
+		},
+    "SubnetRouteAsoc4": {
+			"Type": "AWS::EC2::SubnetRouteTableAssociation",
+			"Properties": {
+				"RouteTableId": {	"Ref": "PublicRouteTable"	},
+				"SubnetId"    : {	"Ref": "PublicSubnet2"	}
+			}
+		},
+		"Route00000": {
+			"DependsOn": ["GatewayToInternet", "InternetGateway"],
+			"Type": "AWS::EC2::Route",
+			"Properties": {
+				"DestinationCidrBlock": "0.0.0.0/0",
+				"RouteTableId": {	"Ref": "PublicRouteTable"	},
+				"GatewayId": {	"Ref": "InternetGateway" }
+			}
+		},
+		"VPNDHCPasoc": {
+			"Type": "AWS::EC2::VPCDHCPOptionsAssociation",
+			"Properties": {
+				"VpcId": {	"Ref": "VPC"	},
+				"DhcpOptionsId": {	"Ref": "VPNDHCP"	}
+			}
+		},
+		"RDSIN1": {
+			"Type": "AWS::EC2::SecurityGroupIngress",
+			"Properties": {
+				"GroupId": { "Ref": "RDSSecurityGroup"	},
+				"IpProtocol": "tcp",
+				"FromPort": "3306",
+				"ToPort": "3306",
+				"SourceSecurityGroupId": {
+					"Ref": "DMZSecurityGroup"
+				}
+			}
+		},
+		"WEBIN1": {
+			"Type": "AWS::EC2::SecurityGroupIngress",
+			"Properties": {
+				"GroupId": { "Ref": "DMZSecurityGroup"	},
+				"IpProtocol": "tcp",
+				"FromPort": "80",
+				"ToPort": "80",
+				"CidrIp": "0.0.0.0/0"
+			}
+		},
+		"WEBIN2": {
+			"Type": "AWS::EC2::SecurityGroupIngress",
+			"Properties": {
+				"GroupId": { "Ref": "DMZSecurityGroup"	},
+				"IpProtocol": "tcp",
+				"FromPort": "22",
+				"ToPort": "22",
+				"CidrIp": { "Ref": "SSHLocation" }
+			}
+		},
+		"WEBIN3": {
+			"Type": "AWS::EC2::SecurityGroupIngress",
+			"Properties": {
+				"GroupId": { "Ref": "DMZSecurityGroup"	},
+				"IpProtocol": "tcp",
+				"FromPort": "2049",
+				"ToPort": "2049",
+				"CidrIp": {
+					"Fn::FindInMap": ["AWSSubnets", "VPC", "CIDR"]
+				}
+			}
+		},
+		"LBIN1": {
+			"Type": "AWS::EC2::SecurityGroupIngress",
+			"Properties": {
+				"GroupId": { "Ref": "LBSecurityGroup"	},
+				"IpProtocol": "tcp",
+				"FromPort": "80",
+				"ToPort": "80",
+				"CidrIp": "0.0.0.0/0"
+			}
+		},
+		"RDSOUT": {
+			"Type": "AWS::EC2::SecurityGroupEgress",
+			"Properties": {
+				"GroupId": { "Ref": "RDSSecurityGroup" },
+				"IpProtocol": "-1",
+				"CidrIp": "0.0.0.0/0"
+			}
+		},
+		"WEBOUT": {
+			"Type": "AWS::EC2::SecurityGroupEgress",
+			"Properties": {
+				"GroupId": { "Ref": "DMZSecurityGroup"	},
+				"IpProtocol": "-1",
+				"CidrIp": "0.0.0.0/0"
+			}
+		},
+		"LBOUT": {
+			"Type": "AWS::EC2::SecurityGroupEgress",
+			"Properties": {
+				"GroupId": { "Ref": "LBSecurityGroup"	},
+				"IpProtocol": "-1",
+				"CidrIp": "0.0.0.0/0"
+			}
+		},
+	"dnsmybbcascloudsitemybbPrimary": {
+			"Type": "AWS::Route53::RecordSetGroup",
+			"Properties": {
+				"HostedZoneName" : "cascloud.site.",
+				"RecordSets": [{
+					"Failover": "PRIMARY",
+					"Name": {"Fn::Join": ["", [ {"Ref": "AWS::StackName" }, ".cascloud.site."]]},
+					"SetIdentifier": {"Fn::Join": ["", [ {"Ref": "AWS::StackName" }, "-Primary"]]},
+					"Type": "A",
+					"AliasTarget": {
+						"HostedZoneId": { "Fn::GetAtt": ["ElasticLoadBalancer1", "CanonicalHostedZoneNameID"]	},
+						"DNSName": { "Fn::GetAtt": ["ElasticLoadBalancer1", "DNSName"] },
+						"EvaluateTargetHealth": true
+					}
+				}]
+			}
+		},
+		"dnsmybbcascloudsitemybbSecondary": {
+			"Type": "AWS::Route53::RecordSetGroup",
+			"Properties": {
+				"HostedZoneName" : "cascloud.site.",
+				"RecordSets": [{
+					"Failover": "SECONDARY",
+					"Name": {"Fn::Join": ["", [ {"Ref": "AWS::StackName" }, ".cascloud.site."]]},
+				"SetIdentifier": {"Fn::Join": ["", [ {"Ref": "AWS::StackName" }, "-Secondary"]]},
+					"Type": "A",
+					"AliasTarget": {
+						"HostedZoneId": "ZHURV8PSTC4K8",
+						"DNSName": "my-backup-london-balancer-1568273072.eu-west-2.elb.amazonaws.com",
+						"EvaluateTargetHealth": true
+					}
+				}]
+			}
+		}
+	},
+	"Outputs": {
+		"ElasticBalancerURL": {
+			"Value": {"Fn::Join": ["", ["http://", {"Fn::GetAtt": ["ElasticLoadBalancer1", "DNSName"]	}]]
+			},
+			"Description": "Load Balancer #1 Hostname"
+		},
+		"FailoverElasticBalancerURL": {
+			"Value": "Pointing to my-backup-london-balancer-1568273072.eu-west-2.elb.amazonaws.com",
+			"Description": "Failover Load Balancer (Failover with Route53, Instances not deployed.)"
+		},
+    "Route53FailOverDNS": {
+      "Value": {"Fn::Join": ["", ["http://", {"Ref": "AWS::StackName" }, ".cascloud.site."]]
+      },
+      "Description": "Route53 Failover Hostname"
+    },
+		"RDSEndpointAddress": {
+			"Value": {
+				"Fn::Join": ["", ["MySQL: ", {
+					"Fn::GetAtt": ["RDSserverInstance", "Endpoint.Address"]
+				}, ":3306"]]
+			},
+			"Description": "RDS Endpoint for the MySQL"
+		}
+	}
+}
